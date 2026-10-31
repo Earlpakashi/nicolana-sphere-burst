@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ニコラナ：スフィア・バースト</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body {
+      background-color: #020709;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+      color: #e2e8f0;
+    }
+    #game-container {
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 0 50px rgba(4, 25, 30, 0.8), 0 0 100px rgba(0, 0, 0, 0.9);
+      border-radius: 12px;
+    }
+    canvas {
+      display: block;
+      touch-action: none;
+    }
+
+    /* UI Overlays */
+    .ui-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 24px;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .ui-layer.active {
+      pointer-events: auto;
+    }
+    .ui-layer.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* Glassmorphism Cards */
+    .glass-card {
+      background: rgba(6, 26, 32, 0.78);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(56, 189, 248, 0.22);
+      border-radius: 20px;
+      padding: 24px 20px;
+      width: 90%;
+      max-width: 360px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    @keyframes popIn {
+      from { transform: scale(0.92); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .title-sub {
+      font-size: 11px;
+      letter-spacing: 4px;
+      color: #38bdf8;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+      font-weight: 600;
+    }
+    .title-main {
+      font-size: 26px;
+      font-weight: 800;
+      color: #f8fafc;
+      letter-spacing: 2px;
+      text-shadow: 0 0 16px rgba(56, 189, 248, 0.5);
+      margin-bottom: 16px;
+    }
+
+    /* Input Style */
+    .input-group {
+      width: 100%;
+      margin-bottom: 16px;
+      text-align: left;
+    }
+    .input-label {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-bottom: 6px;
+      display: block;
+      letter-spacing: 0.5px;
+    }
+    .name-input {
+      width: 100%;
+      padding: 12px 14px;
+      background: rgba(3, 15, 20, 0.7);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 10px;
+      color: #f8fafc;
+      font-size: 15px;
+      font-weight: 600;
+      outline: none;
+      transition: all 0.2s;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+    }
+    .name-input:focus {
+      border-color: #38bdf8;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.4), inset 0 2px 4px rgba(0, 0, 0, 0.4);
+    }
+    .name-input::placeholder {
+      color: #475569;
+    }
+
+    /* Guide Box */
+    .guide-box {
+      width: 100%;
+      background: rgba(2, 10, 14, 0.5);
+      border-radius: 12px;
+      padding: 12px 10px;
+      margin-bottom: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .guide-item {
+      display: flex;
+      align-items: center;
+      text-align: left;
+      gap: 10px;
+    }
+    .guide-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .guide-text h4 {
+      font-size: 12px;
+      color: #bae6fd;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+    .guide-text p {
+      font-size: 10px;
+      color: #94a3b8;
+      line-height: 1.35;
+    }
+
+    /* Button */
+    .action-btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+      color: #f8fafc;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      box-shadow: 0 4px 18px rgba(2, 132, 199, 0.4);
+      transition: all 0.2s;
+    }
+    .action-btn:active {
+      transform: scale(0.97);
+      box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3);
+    }
+
+    /* Score / Gameover text */
+    .score-badge {
+      font-size: 12px;
+      color: #7dd3fc;
+      background: rgba(14, 116, 144, 0.3);
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 8px;
+      border: 1px solid rgba(56, 189, 248, 0.2);
+    }
+    .final-score {
+      font-size: 34px;
+      font-weight: 800;
+      color: #f8fafc;
+      margin-bottom: 4px;
+      text-shadow: 0 0 16px rgba(255, 255, 255, 0.3);
+    }
+    .best-score {
+      font-size: 13px;
+      color: #94a3b8;
+      margin-bottom: 4px;
+    }
+    .result-date {
+      font-size: 11px;
+      color: #64748b;
+      margin-bottom: 18px;
+      letter-spacing: 0.5px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="game-container">
+  <canvas id="gameCanvas"></canvas>
+
+  <div id="title-screen" class="ui-layer active">
+    <div class="glass-card">
+      <div class="title-sub">LAKE OF SACRED TREE</div>
+      <h1 class="title-main">ニコラナ</h1>
+
+      <div class="input-group">
+        <label class="input-label" for="player-name">冒険者のなまえ</label>
+        <input type="text" id="player-name" class="name-input" maxlength="10" placeholder="旅のカエル" autocomplete="off">
+      </div>
+
+      <div class="guide-box">
+        <div class="guide-item">
+          <div class="guide-icon">👆</div>
+          <div class="guide-text">
+            <h4>なぞって光を集める</h4>
+            <p>指を動かすとニコラナが泳ぎ、光の雫が後ろに連なって引き寄せられます。</p>
+          </div>
+        </div>
+        <div class="guide-item">
+          <div class="guide-icon">💥</div>
+          <div class="guide-text">
+            <h4>指を離して全弾バースト！</h4>
+            <p>指を画面から離すと連なった光が一斉爆発。敵を一掃し高得点獲得！</p>
+          </div>
+        </div>
+        <div class="guide-item">
+          <div class="guide-icon">⚠️</div>
+          <div class="guide-text">
+            <h4>トゲの泡に触れるとミス</h4>
+            <p>長く連ねるほど高得点ですが、列が伸びてトゲに当たりやすくなります。</p>
+          </div>
+        </div>
+      </div>
+
+      <button id="start-btn" class="action-btn">水面へ潜る</button>
+    </div>
+  </div>
+
+  <div id="gameover-screen" class="ui-layer hidden">
+    <div class="glass-card">
+      <div class="score-badge" id="player-display-tag">旅のカエル</div>
+      <h2 style="font-size: 22px; color: #f43f5e; margin-bottom: 8px; font-weight: 800;">浄化ならず...</h2>
+      <div class="final-score" id="result-score">0</div>
+      <div class="best-score" id="result-best">最高記録: 0</div>
+      <div class="result-date" id="result-date">----/--/-- --:--</div>
+      <button id="retry-btn" class="action-btn">もう一度挑戦</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const CUSTOM_NICOLANA_IMG_SRC = null;
+  let customImg = null;
+  if (CUSTOM_NICOLANA_IMG_SRC) {
+    customImg = new Image();
+    customImg.src = CUSTOM_NICOLANA_IMG_SRC;
+  }
+
+  const container = document.getElementById('game-container');
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const titleScreen = document.getElementById('title-screen');
+  const gameoverScreen = document.getElementById('gameover-screen');
+  const playerNameInput = document.getElementById('player-name');
+  const startBtn = document.getElementById('start-btn');
+  const retryBtn = document.getElementById('retry-btn');
+  const playerDisplayTag = document.getElementById('player-display-tag');
+  const resultScore = document.getElementById('result-score');
+  const resultBest = document.getElementById('result-best');
+  const resultDate = document.getElementById('result-date');
+
+  let playerName = localStorage.getItem('nicolana_player_name') || '';
+  if (playerName) playerNameInput.value = playerName;
+
+  let highScore = parseInt(localStorage.getItem('nicolana_highscore') || '0', 10);
+
+  function resize() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const targetRatio = 9 / 16;
+    let cw, ch;
+    if (w / h < targetRatio) {
+      cw = w;
+      ch = w / targetRatio;
+    } else {
+      ch = h;
+      cw = h * targetRatio;
+    }
+    canvas.width = 450;
+    canvas.height = 800;
+    container.style.width = `${cw}px`;
+    container.style.height = `${ch}px`;
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  let audioCtx = null;
+  const PENTATONIC = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00];
+
+  function playTone(index, type = 'collect') {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      if (type === 'collect') {
+        const freq = PENTATONIC[index % PENTATONIC.length];
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now);
+        gain.gain.setValueAtTime(0.09, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.22);
+      } else if (type === 'pop') {
+        const freq = PENTATONIC[index % PENTATONIC.length] * 1.6;
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now);
+        osc.frequency.exponentialRampToValueAtTime(freq * 0.45, now + 0.28);
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.28);
+      } else if (type === 'hit') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(130, now);
+        osc.frequency.exponentialRampToValueAtTime(25, now + 0.45);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.45);
+      }
+    } catch(e) {}
+  }
+
+  let state = 'title';
+  let score = 0;
+  let screenShake = 0;
+  let gameTime = 0;
+
+  const ambientSpores = Array.from({ length: 28 }, () => ({
+    x: Math.random() * 450,
+    y: Math.random() * 800,
+    r: 1 + Math.random() * 2,
+    alpha: 0.15 + Math.random() * 0.4,
+    speed: 0.2 + Math.random() * 0.4,
+    swing: Math.random() * Math.PI * 2
+  }));
+
+  const player = {
+    x: 225,
+    y: 600,
+    targetX: 225,
+    targetY: 600,
+    radius: 20,
+    angle: -Math.PI / 2,
+    history: [],
+    touching: false,
+    kickCycle: 0
+  };
+
+  let orbs = [];
+  let chain = [];
+  let enemies = [];
+  let shockwaves = [];
+  let sparks = [];
+  let waterRipples = [];
+
+  let spawnTimer = 0;
+  let enemyTimer = 0;
+
+  function initGame() {
+    score = 0;
+    screenShake = 0;
+    player.x = 225;
+    player.y = 600;
+    player.targetX = 225;
+    player.targetY = 600;
+    player.history = [];
+    player.kickCycle = 0;
+    orbs = [];
+    chain = [];
+    enemies = [];
+    shockwaves = [];
+    sparks = [];
+    waterRipples = [];
+    spawnTimer = 0;
+    enemyTimer = 0;
+
+    for (let i = 0; i < 14; i++) {
+      spawnOrb();
+    }
+  }
+
+  function spawnOrb() {
+    orbs.push({
+      x: 35 + Math.random() * (canvas.width - 70),
+      y: 50 + Math.random() * (canvas.height - 120),
+      radius: 9,
+      pulse: Math.random() * Math.PI * 2,
+      type: Math.random() > 0.82 ? 'gold' : 'cyan',
+      floatOffset: Math.random() * Math.PI * 2
+    });
+  }
+
+  function spawnEnemy() {
+    const fromTop = Math.random() > 0.45;
+    let ex, ey, vx, vy;
+    if (fromTop) {
+      ex = 30 + Math.random() * (canvas.width - 60);
+      ey = -25;
+      vx = (Math.random() - 0.5) * 1.1;
+      vy = 1.0 + Math.random() * 1.4;
+    } else {
+      ex = Math.random() > 0.5 ? -25 : canvas.width + 25;
+      ey = 60 + Math.random() * 450;
+      vx = ex < 0 ? (1.1 + Math.random() * 1.1) : -(1.1 + Math.random() * 1.1);
+      vy = (Math.random() - 0.5) * 1.0;
+    }
+    enemies.push({
+      x: ex,
+      y: ey,
+      vx: vx,
+      vy: vy,
+      radius: 17 + Math.random() * 6,
+      rot: 0,
+      rotSpeed: (Math.random() - 0.5) * 0.06,
+      pulse: Math.random() * Math.PI
+    });
+  }
+
+  function getCanvasCoords(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const t = e.touches ? e.touches[0] : e;
+    return {
+      x: (t.clientX - rect.left) * scaleX,
+      y: (t.clientY - rect.top) * scaleY
+    };
+  }
+
+  canvas.addEventListener('pointerdown', (e) => {
+    if (state !== 'play') return;
+    player.touching = true;
+    const pos = getCanvasCoords(e);
+    player.targetX = pos.x;
+    player.targetY = pos.y;
+  });
+
+  window.addEventListener('pointermove', (e) => {
+    if (!player.touching || state !== 'play') return;
+    const pos = getCanvasCoords(e);
+    player.targetX = pos.x;
+    player.targetY = pos.y;
+  });
+
+  window.addEventListener('pointerup', () => {
+    if (!player.touching) return;
+    player.touching = false;
+    if (state === 'play' && chain.length > 0) {
+      triggerBurst();
+    }
+  });
+
+  function triggerBurst() {
+    const count = chain.length;
+    screenShake = Math.min(count * 1.4, 20);
+
+    chain.forEach((orb, i) => {
+      setTimeout(() => {
+        playTone(i, 'pop');
+        const power = (orb.type === 'gold' ? 88 : 56) + (i * 2.2);
+
+        shockwaves.push({
+          x: orb.x,
+          y: orb.y,
+          r: 6,
+          maxR: power,
+          color: orb.type === 'gold' ? '#fde047' : '#38bdf8',
+          glow: orb.type === 'gold' ? '#f59e0b' : '#0284c7'
+        });
+
+        for (let k = 0; k < 8; k++) {
+          const angle = Math.random() * Math.PI * 2;
+          const spd = 2 + Math.random() * 5;
+          sparks.push({
+            x: orb.x,
+            y: orb.y,
+            vx: Math.cos(angle) * spd,
+            vy: Math.sin(angle) * spd,
+            life: 32,
+            maxLife: 32,
+            color: orb.type === 'gold' ? '#fef08a' : '#bae6fd',
+            size: 2.2 + Math.random() * 2
+          });
+        }
+
+        enemies = enemies.filter(enemy => {
+          const d = Math.hypot(enemy.x - orb.x, enemy.y - orb.y);
+          if (d < power) {
+            score += 250;
+            for (let k = 0; k < 10; k++) {
+              const a = Math.random() * Math.PI * 2;
+              const s = 2 + Math.random() * 6;
+              sparks.push({
+                x: enemy.x,
+                y: enemy.y,
+                vx: Math.cos(a) * s,
+                vy: Math.sin(a) * s,
+                life: 38,
+                maxLife: 38,
+                color: '#f43f5e',
+                size: 2.5 + Math.random() * 2
+              });
+            }
+            return false;
+          }
+          return true;
+        });
+
+      }, i * 32);
+    });
+
+    const burstScore = Math.floor(count * count * 18 * (1 + count * 0.12));
+    score += burstScore;
+    chain = [];
+  }
+
+  function gameOver() {
+    playTone(0, 'hit');
+    state = 'gameover';
+    screenShake = 16;
+    if (score > highScore) {
+      highScore = score;
+      localStorage.setItem('nicolana_highscore', highScore.toString());
+    }
+    playerDisplayTag.innerText = playerName ? `冒険者：${playerName}` : '旅のカエル';
+    resultScore.innerText = score.toLocaleString();
+    resultBest.innerText = `最高記録: ${highScore.toLocaleString()}`;
+
+    const now = new Date();
+    const Y = now.getFullYear();
+    const M = String(now.getMonth() + 1).padStart(2, '0');
+    const D = String(now.getDate()).padStart(2, '0');
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    resultDate.innerText = `記録日時: ${Y}/${M}/${D} ${h}:${m}`;
+
+    gameoverScreen.classList.remove('hidden');
+    gameoverScreen.classList.add('active');
+  }
+
+  startBtn.addEventListener('click', () => {
+    playerName = playerNameInput.value.trim() || '旅のカエル';
+    localStorage.setItem('nicolana_player_name', playerName);
+    titleScreen.classList.remove('active');
+    titleScreen.classList.add('hidden');
+    initGame();
+    state = 'play';
+  });
+
+  retryBtn.addEventListener('click', () => {
+    gameoverScreen.classList.remove('active');
+    gameoverScreen.classList.add('hidden');
+    initGame();
+    state = 'play';
+  });
+
+  function update() {
+    gameTime += 0.03;
+    if (screenShake > 0) screenShake *= 0.88;
+
+    ambientSpores.forEach(spore => {
+      spore.y -= spore.speed;
+      spore.swing += 0.02;
+      spore.x += Math.sin(spore.swing) * 0.3;
+      if (spore.y < -10) {
+        spore.y = 810;
+        spore.x = Math.random() * 450;
+      }
+    });
+
+    waterRipples.forEach(wr => {
+      wr.r += wr.speed;
+      wr.alpha *= 0.94;
+    });
+    waterRipples = waterRipples.filter(wr => wr.alpha > 0.02);
+
+    if (state !== 'play') return;
+
+    const dx = player.targetX - player.x;
+    const dy = player.targetY - player.y;
+    const dist = Math.hypot(dx, dy);
+
+    player.x += dx * 0.16;
+    player.y += dy * 0.16;
+
+    if (dist > 3) {
+      const targetAngle = Math.atan2(dy, dx);
+      let diff = targetAngle - player.angle;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      player.angle += diff * 0.22;
+      player.kickCycle += dist * 0.12;
+
+      if (Math.random() > 0.7) {
+        waterRipples.push({
+          x: player.x,
+          y: player.y,
+          r: 4,
+          speed: 1.2,
+          alpha: 0.3,
+          color: 'rgba(56, 189, 248, 0.4)'
+        });
+      }
+    } else {
+      player.kickCycle *= 0.9;
+    }
+
+    player.history.unshift({ x: player.x, y: player.y });
+    const maxHist = (chain.length + 2) * 8;
+    if (player.history.length > maxHist) player.history.pop();
+
+    chain.forEach((orb, i) => {
+      const targetIdx = (i + 1) * 7;
+      if (player.history[targetIdx]) {
+        orb.x += (player.history[targetIdx].x - orb.x) * 0.36;
+        orb.y += (player.history[targetIdx].y - orb.y) * 0.36;
+      }
+    });
+
+    orbs = orbs.filter(orb => {
+      const d = Math.hypot(player.x - orb.x, player.y - orb.y);
+      if (d < player.radius + orb.radius + 12) {
+        chain.push({
+          x: orb.x,
+          y: orb.y,
+          type: orb.type
+        });
+        playTone(chain.length, 'collect');
+        score += 15;
+
+        for (let k = 0; k < 5; k++) {
+          sparks.push({
+            x: orb.x,
+            y: orb.y,
+            vx: (Math.random() - 0.5) * 3,
+            vy: (Math.random() - 0.5) * 3,
+            life: 20,
+            maxLife: 20,
+            color: orb.type === 'gold' ? '#fde047' : '#7dd3fc',
+            size: 2
+          });
+        }
+        return false;
+      }
+      return true;
+    });
+
+    spawnTimer++;
+    if (spawnTimer > 40 && orbs.length < 16) {
+      spawnOrb();
+      spawnTimer = 0;
+    }
+
+    enemyTimer++;
+    const spawnInterval = Math.max(28, 85 - Math.floor(score / 600));
+    if (enemyTimer > spawnInterval) {
+      spawnEnemy();
+      enemyTimer = 0;
+    }
+
+    enemies.forEach(e => {
+      e.x += e.vx;
+      e.y += e.vy;
+      e.rot += e.rotSpeed;
+      e.pulse += 0.05;
+    });
+    enemies = enemies.filter(e => e.y < canvas.height + 40 && e.x > -40 && e.x < canvas.width + 40);
+
+    for (let e of enemies) {
+      if (Math.hypot(player.x - e.x, player.y - e.y) < player.radius + e.radius - 4) {
+        gameOver();
+        return;
+      }
+      for (let i = 2; i < chain.length; i++) {
+        const seg = chain[i];
+        if (Math.hypot(seg.x - e.x, seg.y - e.y) < e.radius + 6) {
+          gameOver();
+          return;
+        }
+      }
+    }
+
+    shockwaves.forEach(sw => sw.r += 3.8);
+    shockwaves = shockwaves.filter(sw => sw.r < sw.maxR);
+
+    sparks.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vx *= 0.94;
+      p.vy *= 0.94;
+      p.life--;
+    });
+    sparks = sparks.filter(p => p.life > 0);
+  }
+
+  function draw() {
+    ctx.save();
+
+    if (screenShake > 0.5) {
+      const sx = (Math.random() - 0.5) * screenShake;
+      const sy = (Math.random() - 0.5) * screenShake;
+      ctx.translate(sx, sy);
+    }
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const bgGrad = ctx.createRadialGradient(225, 260, 50, 225, 400, 550);
+    bgGrad.addColorStop(0, '#0a2e36');
+    bgGrad.addColorStop(0.5, '#05181e');
+    bgGrad.addColorStop(1, '#02090c');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    for (let i = 0; i < 3; i++) {
+      const offset = (gameTime * 0.4 + i * 2) % (Math.PI * 2);
+      const x1 = 120 + Math.sin(offset) * 80 + i * 90;
+      const x2 = x1 + Math.cos(offset) * 110;
+      const rayGrad = ctx.createLinearGradient(x1, 0, x2, 800);
+      rayGrad.addColorStop(0, 'rgba(56, 189, 248, 0.08)');
+      rayGrad.addColorStop(0.5, 'rgba(16, 185, 129, 0.04)');
+      rayGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+      ctx.fillStyle = rayGrad;
+      ctx.beginPath();
+      ctx.moveTo(x1 - 40, 0);
+      ctx.lineTo(x1 + 40, 0);
+      ctx.lineTo(x2 + 100, 800);
+      ctx.lineTo(x2 - 100, 800);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+
+    ambientSpores.forEach(s => {
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(125, 211, 252, ${s.alpha})`;
+      ctx.shadowBlur = 6;
+      ctx.shadowColor = 'rgba(56, 189, 248, 0.6)';
+      ctx.fill();
+    });
+    ctx.shadowBlur = 0;
+
+    waterRipples.forEach(wr => {
+      ctx.beginPath();
+      ctx.arc(wr.x, wr.y, wr.r, 0, Math.PI * 2);
+      ctx.strokeStyle = wr.color;
+      ctx.globalAlpha = wr.alpha;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    });
+
+    orbs.forEach(orb => {
+      orb.pulse += 0.04;
+      const floatY = Math.sin(orb.pulse + orb.floatOffset) * 4;
+      const curY = orb.y + floatY;
+      const r = orb.radius + Math.sin(orb.pulse * 1.5) * 1.2;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(orb.x, curY, r * 2.2, 0, Math.PI * 2);
+      ctx.fillStyle = orb.type === 'gold' ? 'rgba(251, 191, 36, 0.15)' : 'rgba(56, 189, 248, 0.15)';
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(orb.x, curY, r, 0, Math.PI * 2);
+      const orbGrad = ctx.createRadialGradient(orb.x - 2, curY - 2, 1, orb.x, curY, r);
+      if (orb.type === 'gold') {
+        orbGrad.addColorStop(0, '#fef08a');
+        orbGrad.addColorStop(0.7, '#f59e0b');
+        orbGrad.addColorStop(1, '#b45309');
+      } else {
+        orbGrad.addColorStop(0, '#e0f2fe');
+        orbGrad.addColorStop(0.6, '#38bdf8');
+        orbGrad.addColorStop(1, '#0284c7');
+      }
+      ctx.fillStyle = orbGrad;
+      ctx.shadowBlur = 14;
+      ctx.shadowColor = orb.type === 'gold' ? '#f59e0b' : '#38bdf8';
+      ctx.fill();
+      ctx.restore();
+    });
+
+    shockwaves.forEach(sw => {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(sw.x, sw.y, sw.r, 0, Math.PI * 2);
+      ctx.strokeStyle = sw.color;
+      ctx.lineWidth = Math.max(1.5, (1 - sw.r / sw.maxR) * 8);
+      ctx.globalAlpha = Math.max(0, 1 - sw.r / sw.maxR);
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = sw.glow;
+      ctx.stroke();
+      ctx.restore();
+    });
+
+    if (chain.length > 0) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(player.x, player.y);
+      chain.forEach(seg => ctx.lineTo(seg.x, seg.y));
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+      ctx.lineWidth = 3.5;
+      ctx.lineCap = 'round';
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#38bdf8';
+      ctx.stroke();
+      ctx.restore();
+
+      chain.forEach((seg, i) => {
+        ctx.save();
+        const r = Math.max(4.5, 9.5 - i * 0.12);
+        ctx.beginPath();
+        ctx.arc(seg.x, seg.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = seg.type === 'gold' ? '#fef08a' : '#7dd3fc';
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = seg.type === 'gold' ? '#f59e0b' : '#38bdf8';
+        ctx.fill();
+        ctx.restore();
+      });
+    }
+
+    sparks.forEach(p => {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = p.life / p.maxLife;
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = p.color;
+      ctx.fill();
+      ctx.restore();
+    });
+
+    enemies.forEach(e => {
+      ctx.save();
+      ctx.translate(e.x, e.y);
+      ctx.rotate(e.rot);
+
+      const pulseScale = 1 + Math.sin(e.pulse) * 0.08;
+      const curR = e.radius * pulseScale;
+
+      ctx.beginPath();
+      const spikes = 7;
+      for (let i = 0; i < spikes * 2; i++) {
+        const rad = (i % 2 === 0) ? curR : curR * 0.6;
+        const angle = (i / spikes) * Math.PI;
+        const px = Math.cos(angle) * rad;
+        const py = Math.sin(angle) * rad;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+
+      const enemyGrad = ctx.createRadialGradient(0, 0, 2, 0, 0, curR);
+      enemyGrad.addColorStop(0, '#881337');
+      enemyGrad.addColorStop(0.6, '#4c0519');
+      enemyGrad.addColorStop(1, '#1e0108');
+      ctx.fillStyle = enemyGrad;
+      ctx.shadowBlur = 16;
+      ctx.shadowColor = '#f43f5e';
+      ctx.fill();
+
+      ctx.strokeStyle = '#fb7185';
+      ctx.lineWidth = 1.8;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(0, 0, curR * 0.28, 0, Math.PI * 2);
+      ctx.fillStyle = '#fda4af';
+      ctx.fill();
+
+      ctx.restore();
+    });
+
+    if (state !== 'gameover') {
+      ctx.save();
+      ctx.translate(player.x, player.y);
+      ctx.rotate(player.angle + Math.PI / 2);
+
+      if (customImg && customImg.complete) {
+        const size = player.radius * 3.0;
+        ctx.drawImage(customImg, -size / 2, -size / 2, size, size);
+      } else {
+        const kick = Math.sin(player.kickCycle) * 7;
+
+        ctx.fillStyle = '#0f3e22';
+        ctx.beginPath();
+        ctx.ellipse(-14, 14 + kick, 6, 12, -0.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(14, 14 + kick, 6, 12, 0.4, 0, Math.PI * 2);
+        ctx.fill();
+
+        const bodyGrad = ctx.createRadialGradient(-4, -6, 2, 0, 0, 24);
+        bodyGrad.addColorStop(0, '#15803d');
+        bodyGrad.addColorStop(0.6, '#166534');
+        bodyGrad.addColorStop(1, '#052e16');
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 19, 23, 0, 0, Math.PI * 2);
+        ctx.fillStyle = bodyGrad;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = 'rgba(21, 128, 61, 0.5)';
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = 'rgba(34, 197, 94, 0.25)';
+        ctx.beginPath();
+        ctx.arc(-6, 4, 3, 0, Math.PI * 2);
+        ctx.arc(5, 7, 2.5, 0, Math.PI * 2);
+        ctx.arc(0, 12, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#f8fafc';
+        ctx.beginPath();
+        ctx.arc(-11, -15, 5.5, 0, Math.PI * 2);
+        ctx.arc(11, -15, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#022c22';
+        ctx.beginPath();
+        ctx.arc(-11, -15, 3, 0, Math.PI * 2);
+        ctx.arc(11, -15, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(-12, -16.5, 1.2, 0, Math.PI * 2);
+        ctx.arc(10, -16.5, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(-10, -21);
+        ctx.lineTo(-14, -32);
+        ctx.lineTo(-5, -27);
+        ctx.lineTo(0, -35);
+        ctx.lineTo(5, -27);
+        ctx.lineTo(14, -32);
+        ctx.lineTo(10, -21);
+        ctx.closePath();
+
+        const crownGrad = ctx.createLinearGradient(-10, -35, 10, -21);
+        crownGrad.addColorStop(0, '#fef08a');
+        crownGrad.addColorStop(0.5, '#eab308');
+        crownGrad.addColorStop(1, '#ca8a04');
+        ctx.fillStyle = crownGrad;
+
+        if (chain.length > 0) {
+          ctx.shadowBlur = Math.min(chain.length * 3.5, 30);
+          ctx.shadowColor = '#fef08a';
+        }
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(0, -26, 2.2, 0, Math.PI * 2);
+        ctx.fillStyle = '#38bdf8';
+        ctx.fill();
+        ctx.restore();
+      }
+
+      ctx.restore();
+    }
+
+    if (state === 'play') {
+      ctx.save();
+      ctx.fillStyle = 'rgba(2, 9, 12, 0.65)';
+      ctx.fillRect(0, 0, canvas.width, 70);
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = '600 12px -apple-system, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(playerName || '旅のカエル', 18, 26);
+
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = '800 22px -apple-system, sans-serif';
+      ctx.fillText(score.toLocaleString(), 18, 54);
+
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#64748b';
+      ctx.font = '500 11px -apple-system, sans-serif';
+      ctx.fillText('BEST RECORD', canvas.width - 18, 24);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '700 15px -apple-system, sans-serif';
+      ctx.fillText(Math.max(score, highScore).toLocaleString(), canvas.width - 18, 44);
+
+      if (chain.length > 0) {
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(6, 26, 32, 0.85)';
+        ctx.roundRect ? ctx.roundRect(canvas.width / 2 - 90, 80, 180, 36, 18) : ctx.rect(canvas.width / 2 - 90, 80, 180, 36);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.fillStyle = '#38bdf8';
+        ctx.font = '800 14px -apple-system, sans-serif';
+        ctx.fillText(`⚡ 連鎖ストック: ${chain.length}`, canvas.width / 2, 98);
+        ctx.font = '500 10px -apple-system, sans-serif';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText('指を離してバースト！', canvas.width / 2, 110);
+      }
+
+      ctx.restore();
+    }
+
+    ctx.restore();
+    requestAnimationFrame(draw);
+  }
+
+  function gameLoop() {
+    update();
+    requestAnimationFrame(gameLoop);
+  }
+
+  gameLoop();
+  requestAnimationFrame(draw);
+</script>
+</body>
+</html>
